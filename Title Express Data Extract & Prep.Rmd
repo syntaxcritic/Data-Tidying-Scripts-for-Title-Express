@@ -1,0 +1,652 @@
+---
+title: "Title Express Data Extract & PRep"
+author: "Colin Lacy - syntaxcritic"
+output:
+  html_document: 
+    code_folding: hide
+    df_print: paged
+---
+
+
+# 1 - Load Packages
+
+Load packages for data extraction and prep.
+
+```{r Load Packages}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(knitr)
+
+```
+
+
+
+# 2 - Choose Files for Analysis
+
+Define locations of data tables exported from SMS Title Express.
+
+```{r Set filepaths for TSS data}
+# Locate "Dates" data
+file.choose()
+filepath_dates <- .Last.value
+
+# Locate "Address" data
+file.choose()
+filepath_address <- .Last.value
+
+# Locate "Loan and Lender" data
+file.choose()
+filepath_loan_lender <- .Last.value
+
+# Locate "Sale and Loan Amounts" data
+file.choose()
+filepath_sale_loan_amts <- .Last.value
+
+# Locate "Escrow Account" data
+file.choose()
+filepath_escrow <- .Last.value
+
+# Locate "Policy Log" data
+file.choose()
+filepath_policy_log <- .Last.value
+
+
+```
+
+
+
+# 3 - Extract "Dates" data
+
+**Key Inputs:** 
+* filepath_dates
+
+**Key Outputs:** 
+* dates_data
+
+**Steps:**
+* read .csv data from "Dates" file 
+* define variables
+* convert dates from M/D/YYYY to YYYY-MM-DD format
+* clean "Order Number" variable (upper-case, no spaces)
+
+```{r Extract Dates data}
+dates_data <- read_csv(filepath_dates, 
+                       col_types = cols(
+                         `Order Number` = col_character(), 
+                         `Settlement Date` = col_date(format = "%m/%d/%Y"), 
+                         `Disbursement Date` = col_date(format = "%m/%d/%Y"), 
+                         `Closed Date` = col_date(format = "%m/%d/%Y"), 
+                         `Open Date` = col_date(format = "%m/%d/%Y"), 
+                         `Lender Policy Date` = col_skip(), 
+                         `Owners Policy Date` = col_skip(), 
+                         `Lender's Distribution Date` = col_skip(),
+                         `Owner's Distribution Date` = col_skip(), 
+                         `Issued Date` = col_skip(), 
+                         `Confirmed Date` = col_skip(),
+                         `Buyer 1` = col_character(), 
+                         `Seller 1` = col_character(), 
+                         `Client Name` = col_character(), 
+                         `Lender Name` = col_character(), 
+                         `Officer` = col_skip(), 
+                         `Closer` = col_skip(), 
+                         `Status` = col_character(), 
+                         `Address 1` = col_character(), 
+                         `City` = col_character(), 
+                         `County` = col_character(), 
+                         `State` = col_character(), 
+                         `Branch` = col_skip() )) %>% 
+  mutate(`Order Number` = str_to_upper(`Order Number`)) %>% 
+  mutate(`Order Number` = str_remove_all(`Order Number`, "\\s"))
+
+```
+
+
+
+# 4 - Extract Addresses
+
+**Key Inputs:**
+* filepath_address
+
+**Key Outputs:**
+* address_data
+
+**Steps:**
+* read .csv data from "Address" file 
+* define variables
+* clean "Order Number" variable (upper-case, no spaces)
+
+```{r Extract Address data}
+address_data <- read_csv(filepath_address, 
+                         col_types = cols(
+                           `Order Number` = col_character(),
+                           `Address 1` = col_character(), 
+                           `Address 2` = col_character(), 
+                           `City` = col_character(), 
+                           `County` = col_character(), 
+                           `State` = col_character(), 
+                           `ZIP` = col_integer(), 
+                           `Buyer 1` = col_character(), 
+                           `Seller 1` = col_character(), 
+                           `Officer` = col_skip(), 
+                           `Closer` = col_skip(), 
+                           `Status` = col_character(), 
+                           `Branch` = col_skip() )) %>% 
+  mutate(`Order Number` = str_to_upper(`Order Number`)) %>% 
+  mutate(`Order Number` = str_remove_all(`Order Number`, "\\s"))
+
+```
+
+
+
+# 5 - Extract Lenders
+
+**Key Inputs:**
+* filepath_loan
+
+**Key Outputs:**
+loan_lender_data
+
+**Steps:**
+* read .csv data from "Loan & Lender" file 
+* define variables
+* clean "Order Number" variable (upper-case, no spaces)
+
+```{r Extract "Find, Loan" for DC/MD/VA}
+loan_DC <- read_csv(filepath_loan_DC, 
+                    col_types = cols(
+                      `Order Number` = col_character(), 
+                      `Loan Number` = col_number(), 
+                      `Lender Name` = col_character(), 
+                      `Lender Agent` = col_skip(), 
+                      `Buyer 1` = col_character(), 
+                      `Seller 1` = col_character(), 
+                      `AU Case File ID` = col_skip(), 
+                      `UCD Case File ID` = col_skip(), 
+                      `Officer` = col_skip(), 
+                      `Closer` = col_skip(), 
+                      `Status` = col_character(), 
+                      `Address 1` = col_character(), 
+                      `City` = col_character(), 
+                      `County` = col_character(), 
+                      `State` = col_character(), 
+                      `Branch` = col_skip() )) %>% 
+  mutate(`Order Number` = str_to_upper(`Order Number`)) %>% 
+  mutate(`Order Number` = str_remove_all(`Order Number`, "\\s"))
+
+```
+
+
+
+# 6 - Extract Sale and Loan Amounts
+
+**Key Inputs:**
+* filepath_sale_loan_amts
+
+**Key Outputs:**
+* sale_loan_amts
+
+**Steps:**
+* read .xlsx data from "Sale & Loan Amounts" file
+* trim header/footer rows 
+* define variables 
+* convert date from M/D/YYYY to YYYY-MM-DD format
+* clean "Order Number" variable (upper-case, no spaces)
+
+```{r Extract "Management, History, Open Date"}
+sale_loan_amts <- read_excel(filepath_sale_loan_amts, 
+                                  skip = 5, 
+                                  n_max = (
+                                    nrow(read_excel(filepath_sale_loan_amts)
+                                    )-8), 
+                                  col_names = c(
+                                    "Order Number", 
+                                    "Type", 
+                                    "Status", 
+                                    "Buyer Name", 
+                                    "Open Date", 
+                                    "Sale Amount", 
+                                    "Loan Amount", 
+                                    "Event"), 
+                                  col_types = c("text", 
+                                                "text", 
+                                                "text", 
+                                                "text", 
+                                                "date", 
+                                                "numeric", 
+                                                "numeric", 
+                                                "text")) %>% 
+  mutate(`Open Date` = date(`Open Date`)) %>% 
+  mutate(`Order Number` = str_to_upper(`Order Number`)) %>% 
+  mutate(`Order Number` = str_remove_all(`Order Number`, "\\s"))
+
+```
+
+
+
+# 7 - Combine Basic Case Data (Dates, Addresses, Loans, Amounts)
+
+**Key Inputs:**
+* dates_data
+* address_data
+* loan_lender_data
+* sale_loan_amts
+
+**Key Outputs:**
+* case_info
+
+**Steps:**
+* join dates_data and address_data, then loan_lender_data
+* select relevant variables
+* join sale_loan_amts, by "Order Number" variable
+* rename "Status" and "Disbursement Date" variables
+* create "Case Type" variable
+* create "Property Type" variable
+* clean "Lender Name" observations (title caps, remove extra spaces)
+
+```{r Combine dates/address/loan_lender/sale_loan_amts data}
+case_info <- left_join(dates_data, address_data) %>%
+  left_join(loan_lender_data) %>%
+  select(
+    `Order Number`:`Lender Name`, 
+    `Loan Number`, 
+    `Status`, 
+    `Address 1`, 
+    `Address 2`, 
+    `City`:`ZIP`) %>% 
+  left_join(sale_loan_amts, by = "Order Number") %>%
+  select(
+    `Order Number`:`ZIP`, 
+    `Sale Amount`, 
+    `Loan Amount`) %>%
+  rename(`Status` = `Status.x`, 
+         `Open Date` = `Open Date.x`) %>% 
+  mutate(`Case Type` = case_when(
+    `Sale Amount` > 0 ~ "Sale", 
+    `Sale Amount` == 0 & `Loan Amount` > 0 ~ "Refi")) %>%
+  mutate(`Property Type` = case_when(
+    str_detect(`Address 2`, regex("apt|apartment|unit|#", ignore_case = TRUE)) ~ "Condo", 
+    TRUE ~ "House")) %>%
+  select(`Order Number`, 
+         `Case Type`, 
+         `Property Type`, 
+         `Settlement Date`:`Loan Amount`) %>% 
+  mutate(`Lender Name` = str_to_title(`Lender Name`)) %>%
+  mutate(`Lender Name` = str_trim(`Lender Name`)) %>% 
+  mutate(`Lender Name` = str_squish(`Lender Name`))
+
+```
+
+
+
+# 8 - Extract and Tidy FATICO Policy Logs
+
+
+**Key Outputs:**
+* FATICO_policies_types
+* case_FATICO_policies
+
+## 8-A
+Extract the Policy Logs.
+
+**Key Inputs:**
+* filepath_policy_log
+
+**Key Outputs:**
+* FATICO_policies_all
+
+**Steps:**
+* read .XLS data from "FATICO, Policy Log, Policy Date, 2015-19, Complete" file
+* trim header/footer rows
+* define variables
+* convert dates from M/D/YYYY to YYYY-MM-DD format
+* clean "Order Number" variable (upper-case, no spaces)
+
+```{r Extract FATICO Policy Logs}
+FATICO_policies_all <- read_excel(filepath_policy_log, 
+                                        skip = 10, 
+                                        n_max = (nrow(read_excel(filepath_policy_log))-11), 
+                                        col_names = c(
+                                          "Account", 
+                                          "Order Number",
+                                          "Created By", 
+                                          "Street", 
+                                          "City", 
+                                          "County", 
+                                          "State", 
+                                          "ZIP", 
+                                          "Policy Number", 
+                                          "Policy Name", 
+                                          "Policy Amount", 
+                                          "Status", 
+                                          "Created Date", 
+                                          "Policy Date", 
+                                          "Rate Type", 
+                                          "Extended", 
+                                          "Policy Premium", 
+                                          "Policy Commission", 
+                                          "FATICO Policy Retention"), 
+                                        col_types = c(
+                                          "text", 
+                                          "text", 
+                                          "text", 
+                                          "text", 
+                                          "text", 
+                                          "text", 
+                                          "text", 
+                                          "text", 
+                                          "text", 
+                                          "text", 
+                                          "numeric", 
+                                          "text", 
+                                          "text", 
+                                          "text", 
+                                          "text", 
+                                          "text", 
+                                          "numeric", 
+                                          "numeric", 
+                                          "numeric")) %>% 
+  mutate(`Created Date` = parse_date(`Created Date`, "%m/%d/%Y"), 
+         `Policy Date` = parse_date(`Policy Date`, "%m/%d/%Y")) %>% 
+  mutate(`Order Number` = str_to_upper(`Order Number`)) %>% 
+  mutate(`Order Number` = str_remove_all(`Order Number`, "\\s"))
+
+```
+
+## 8-B
+Create "Policy Type" variable ("owner" or "lender") based on "Policy Name" strings. 
+
+**Key Inputs:**
+* FATICO_policies_all
+
+**Key Outputs:**
+* FATICO_policies_types
+
+**Steps:**
+* create and store vector strings of all keywords for "Owner" and "Lender" policy types
+* create "Policy Type" variable using case_when() and str_detect()
+* clean "Order Number" variable (upper-case, no spaces)
+
+```{r Create FATICO "Policy Type" variable}
+owner_policy_names <- c("Eagle", "Owner")
+
+lender_policy_names <- c("Loan")
+
+FATICO_policies_types <- FATICO_policies_all %>% filter(`Status` == "Remitted") %>% 
+  mutate(`Policy Type` = case_when(
+    str_detect(`Policy Name`, regex(str_flatten(owner_policy_names, collapse = "|"), ignore_case = TRUE)) ~ "Owner", 
+    str_detect(`Policy Name`, regex(str_flatten(lender_policy_names, collapse = "|"), ignore_case = TRUE)) ~ "Lender")) %>% 
+  mutate(`Order Number` = str_to_upper(`Order Number`))
+
+```
+
+## 8-C
+Create table of tidy Title Policy data (one line/observation per "Order Number").
+
+**Key Inputs:**
+* FATICO_policies_types
+
+**Key Outputs:**
+* case_FATICO_policies
+
+**Steps:**
+* select relevant variables
+* group_by() key variables
+* summarize(), keeping NAs
+* pivot_wider() with new names from "Policy Type" variable, and rename variables
+* create new variables (total Policy Premiums/Commissions/Retentions) and select key variables
+
+```{r Tidy FATICO Policy data: one line per "Order Number"}
+case_FATICO_policies <- FATICO_policies_types %>% 
+  select(
+    `Order Number`, 
+    `State`, 
+    `Policy Type`, 
+    `Created Date`, 
+    `Policy Date`, 
+    `Policy Amount`, 
+    `Policy Premium`, 
+    `Policy Commission`, 
+    `FATICO Policy Retention`) %>% 
+  group_by(`Order Number`, 
+           `Policy Type`, 
+           `State`, 
+           `Created Date`, 
+           `Policy Date`) %>% 
+  summarize(`Policy Amount` = sum(`Policy Amount`, na.rm = TRUE), 
+            `Policy Premium` = sum(`Policy Premium`, na.rm = TRUE), 
+            `Policy Commission` = sum(`Policy Commission`, na.rm = TRUE),
+            `FATICO Policy Retention` = sum(`FATICO Policy Retention`, na.rm = TRUE)) %>% 
+  pivot_wider(names_from = `Policy Type`, 
+              values_from = c(`Created Date`, 
+                              `Policy Date`, 
+                              `Policy Amount`, 
+                              `Policy Premium`, 
+                              `Policy Commission`, 
+                              `FATICO Policy Retention`)) %>% 
+  rename(
+    `Lender Policy Date` = `Policy Date_Lender`, 
+    `Lender Policy Created Date` =  `Created Date_Lender`, 
+    `Lender Policy Amount` = `Policy Amount_Lender`, 
+    `Lender Policy Premium` = `Policy Premium_Lender`, 
+    `Lender Policy Commission` = `Policy Commission_Lender`, 
+    `Lender Policy FATICO Retention` = `FATICO Policy Retention_Lender`, 
+    `Owner Policy Date` = `Created Date_Owner`, 
+    `Owner Policy Created Date` = `Policy Date_Owner`, 
+    `Owner Policy Amount` = `Policy Amount_Owner`, 
+    `Owner Policy Premium` = `Policy Premium_Owner`, 
+    `Owner Policy Commission` = `Policy Commission_Owner`, 
+    `Owner Policy FATICO Retention` = `FATICO Policy Retention_Owner`) %>% 
+  mutate(`Total Policy Premiums` = sum(`Lender Policy Premium`, 
+                                      `Owner Policy Premium`, 
+                                      na.rm = TRUE), 
+         `Total Commissions` = sum(`Lender Policy Commission`, 
+                                       `Owner Policy Commission`, 
+                                       na.rm = TRUE), 
+         `Total FATICO Retentions` = sum(`Lender Policy FATICO Retention`, 
+                                         `Owner Policy FATICO Retention`,
+                                         na.rm = TRUE)
+  ) %>% 
+  select(`Order Number`, 
+         `State`, 
+         starts_with("Total"),
+         starts_with("Lender"), 
+         starts_with("Owner")
+  )
+
+```
+
+
+
+# 9 - Extract Escrow Account Transactions
+
+**Key Inputs:**
+* filepath_escrow
+
+**Key Outputs:**
+* escrow_data
+
+**Steps:**
+* read .xlsx data from "Escrow" file  
+* trim header rows
+* convert dates from MM/DD/YYYY to YYYY-MM-DD format
+* rename variables
+* clean "Order Number" variable (upper-case, no spaces)
+* clean "Payee" variable (remove extra whitespace)
+
+```{r Extract Escrow data}
+escrow_data <- read_excel(filepath_escrow, skip = 5) %>% 
+  mutate(Date = ymd(Date)) %>% 
+  rename(`Order Number` = `File Number`) %>% 
+  mutate(`Order Number` = str_to_upper(`Order Number`)) %>% 
+  mutate(`Order Number` = str_remove_all(`Order Number`, "\\s")) %>% 
+  mutate(`Payee` = str_trim(`Payee`)) %>% 
+  mutate(`Payee` = str_squish(`Payee`))
+
+```
+
+
+
+# 10 - Calculate Revenue per Case
+Find escrow account disbursements with your company as payee to determine total revenue per case. 
+
+**Key Inputs:**
+* Your company's name, exactly as it appears in your escrow account data when your company sends or receives funds from the escrow account
+* escrow_data
+
+**Key Outputs:**
+* case_disbursement
+
+**Steps:**
+* Enter your company's name exactly as it appears in your escrow data)
+* group remaining transactions by "Order Number" variable, and take sum of payments to create "Disbursement" variable
+  + multiply by -1 for positive revenue
+
+```{r Filter "escrow_data" for total funds disbursed to your company per case}
+
+co_name <- readline(prompt = "Enter your company's name, capitalized and spelled exactly as it appears on any transactions in your escrow data: ")
+
+case_disbursement <- escrow_data %>% 
+  filter(Category == "Disbursement", 
+         str_detect(Payee, 
+                    co_name) == FALSE) %>% 
+  group_by(`Order Number`) %>% 
+  summarize(`Disbursement` = sum(Total)) %>% 
+  mutate(`Disbursement` = `Disbursement` * -1) %>% 
+  ungroup()
+
+```
+
+
+
+# 11 - Create Table of Each Order Number's County
+Assists when filling in missing observations for "County" variable in final table.
+
+**Key Inputs:**
+* FATICO_policies_all
+
+**Key Outputs:**
+* county_FATICO
+
+**Steps:**
+* extract "Order Number" and "County Variables"
+* change variations of county names to common spellings/names
+
+```{r Extract Order Numbers and Counties}
+county_FATICO <- FATICO_policies_all %>% select(`Order Number`, County) %>% 
+  rename(CountyALT = County) %>% 
+  mutate(CountyALT = str_to_title(CountyALT)) %>% 
+  mutate(CountyALT = str_trim(CountyALT, side = "both")) %>% 
+  mutate(CountyALT = str_squish(CountyALT)) %>% 
+  mutate(CountyALT = case_when(
+    str_detect(CountyALT, "District Of Columbia") ~ "DC", 
+    TRUE ~ CountyALT)) %>% 
+  distinct()
+
+```
+
+
+# 12 - Combine Data Into Single Table, With Detail of Revenue
+
+**Key Inputs:**
+* case_info
+* case_FATICO_policies
+* case_disbursement
+* county_FATICO
+
+**Key Outputs:**
+* case_data
+
+**Steps:**
+* join table: case_info, case_FATICO_policies, case_disbursement
+* create variables for "Service/Non-Service Fees" and "Case Revenue"
+  + NOTE: subtracting with a row/observation only works properly after grouping by "Order Number". (why??)
+* clean out cases with bad or suspicious data:
+  + "Status" variable: "Cancelled", "Deleted", "History"
+  + "Case Type" variable blank
+* create "Case Transaction Amount" variable
+  + equals "Sale Amount" if "Case Type" variable is a Sale, "Loan Amount" if a Refi
+* create "Cash Down" and "% Cash Down" variables
+* select relevant variables
+* create individual month/day/year/quarter variables for each "Date" variable
+* join table: county_FATICO
+  + then, use its "CountyALT" to fill missing instances of "County"
+  + select() out "CountyALT" variable
+
+
+```{r Final Table for Your Company's Analysis & Graphs}
+case_data <- left_join(case_info, case_FATICO_policies) %>% 
+  left_join(case_disbursement) %>% 
+  mutate(`Non-Service Fees` = sum(`Total Commissions`, na.rm = TRUE)) %>%
+  mutate(`Service Fees` = `Disbursement` - `Non-Service Fees`) %>% 
+  mutate(`Case Revenue` = `Disbursement`) %>% 
+  ungroup() %>% 
+  filter(str_detect(Status, "Cancelled|Deleted|History") == FALSE) %>% 
+  filter(!is.na(`Case Type`)) %>% 
+  mutate(`Case Transaction Amount` = case_when(
+    `Case Type` == "Sale" ~ `Sale Amount`, 
+    `Case Type` == "Refi" ~ `Loan Amount`
+  )) %>% 
+  mutate(`Cash Down` = case_when(
+    `Case Type` == "Sale" ~ `Sale Amount` - `Loan Amount`)) %>% 
+  mutate(`% Cash Down` = case_when(
+    `Case Type` == "Sale" ~ round((((`Sale Amount` - `Loan Amount`)/`Sale Amount`)*100), digits = 2))) %>% 
+  select(`Order Number`:`Property Type`, 
+         `Open Date`, 
+         `Settlement Date`:`Closed Date`, 
+         `Lender Name`:`ZIP`, 
+         `Case Transaction Amount`, 
+         `Sale Amount`,
+         `Loan Amount`, 
+         `Cash Down`, 
+         `% Cash Down`, 
+         `Case Revenue`, 
+         `Service Fees`, 
+         `Total Commissions`,
+         `Disbursement`, 
+         `Total Policy Premiums`, 
+         `Total FATICO Retentions`,
+         `Buyer 1`:`Client Name`, 
+         `Lender Policy Created Date`:`Owner Policy FATICO Retention`) %>% 
+  rename(Lender = 'Lender Name') %>% 
+  mutate(`Open Year` = year(`Open Date`), 
+         `Open Month` = month(`Open Date`), 
+         `Open Day` = day(`Open Date`), 
+         `Open Quarter` = quarter(`Open Date`), 
+         `Settlement Year` = year(`Settlement Date`), 
+         `Settlement Month` = month(`Settlement Date`), 
+         `Settlement Day` = day(`Settlement Date`), 
+         `Settlement Quarter` = quarter(`Settlement Date`), 
+         `Disbursement Year` = year(`Disbursement Date`), 
+         `Disbursement Month` = month(`Disbursement Date`), 
+         `Disbursement Day` = day(`Disbursement Date`), 
+         `Disbursement Quarter` = quarter(`Disbursement Date`), 
+         `Quarterly Open Date` = year(`Open Date`) + 0.10*(quarter(`Open Date`)), 
+         `Quarterly Disbursement Date` = year(`Disbursement Date`) + 0.10*(quarter(`Disbursement Date`)), 
+         `Quarterly Settlement Date` = year(`Settlement Date`) + 0.10*(quarter(`Settlement Date`))) %>% 
+  left_join(county_FATICO) %>% 
+  mutate(County = case_when(
+    is.na(County) ~ CountyALT, 
+    TRUE ~ County)) %>% 
+  mutate(County = case_when(
+    is.na(County) & State == "DC" ~ "DC", 
+    TRUE ~ County)) %>% 
+  mutate(County = str_remove(County, "City")) %>% 
+  mutate(County = str_trim(County)) %>% 
+  mutate(County = str_squish(County)) %>% 
+  select(`Order Number`:`Quarterly Settlement Date`)
+
+```
+
+# 13 - Save your case data to a file
+
+Name and save your completed file of data from Title Express and First American's policy log:
+
+```{r}
+file_name <- readline(prompt = "Enter a name for your file (no special characters): ")
+
+write_csv(case_data, str_c(file_name, ".csv"))
+
+```
+
+Your new .csv file is now stored in: `r getwd()` 
